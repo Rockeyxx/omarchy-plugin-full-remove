@@ -1,0 +1,11 @@
+# Local only: EGM design briefs, drafts and review reports
+.egm/
+CLAUDE.md
+.claude/
+__pycache__/
+*.pyc
+.pytest_cache/
+root/pkg/
+root/src/
+root/*.pkg.tar.*
+root/*.log

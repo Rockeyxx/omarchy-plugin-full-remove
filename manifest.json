@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.rockeyxx.full-remove",
+  "name": "Full Remove",
+  "version": "0.1.0",
+  "author": "Rockeyxx",
+  "license": "MIT",
+  "description": "Uninstall pacman/AUR, Flatpak, Snap and AppImage apps and dev tools, move their leftovers to the Trash, then remove orphans and unused runtimes. Needs a small root-owned helper (manual setup).",
+  "kinds": [
+    "panel"
+  ],
+  "entryPoints": {
+    "panel": "Panel.qml"
+  }
+}

@@ -1,0 +1,43 @@
+        Parent: 1ea2cc62d5d76d9122fb2980b3829555b8f5076a67a6bcd42c4a6f6becd33390
+       Subject: Merge beta to stable (#1572) (6e7846ff7743)
+          Date: 2026-09-26 16:34:01 +0000
+
+     Extension: runtime/org.freedesktop.Platform.Compat.i386/x86_64/26.08
+            ID: org.freedesktop.Platform.Compat.i386
+        Origin: flathub
+        Commit: 99439c8270e0301eb71068a9959ff613131da7bedb7432842b5dd225dade41b4
+  Installation: system
+Installed Size: 326.3 MB
+
+     Extension: runtime/org.freedesktop.Platform.GL32.default/x86_64/26.08
+            ID: org.freedesktop.Platform.GL32
+        Origin: flathub
+        Commit: 3afb051cc4aceb3842efd0b1a8c013de5c486f637c59ca9612fb0d6b0ab53533
+  Installation: system
+Installed Size: 493.2 MB
+
+     Extension: runtime/org.freedesktop.Platform.GL32.nvidia-615-78-08/x86_64/1.4
+            ID: org.freedesktop.Platform.GL32
+        Origin: flathub
+        Commit: 03f07590386d12af7dc1f341b168736155a65d27be9007441a6ec1100dd4da98
+  Installation: system
+Installed Size: 682.4 MB
+
+     Extension: runtime/org.freedesktop.Platform.VAAPI.nvidia.i386/x86_64/26.08
+            ID: org.freedesktop.Platform.VAAPI.nvidia.i386
+        Origin: flathub
+        Commit: 4b220d8daaf2f856e23f35fa51bb8c356686ffc48cf1e5a43fc87865b6a66200
+  Installation: system
+Installed Size: 168.4 kB
+
+     Extension: runtime/org.freedesktop.Platform.codecs_extra.i386/x86_64/26.08-extra
+            ID: org.freedesktop.Platform.codecs_extra.i386
+        Origin: flathub
+        Commit: 15a9c4c8b0de42a17aef8d9e1e8dc959b34a8dae4ef75b918dd46d078669705d
+  Installation: system
+Installed Size: 32.2 MB
+
+     Extension: runtime/org.freedesktop.Platform.GL32.default/x86_64/26.08-extra
+            ID: org.freedesktop.Platform.GL32
+        Origin: flathub
+        Commit: aced1f89ff569f8abdadfb1e44948ba3367609ed9c1bff93cc4d1d28b3fdd461

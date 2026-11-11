@@ -1,0 +1,3 @@
+/home/user/.bun/install/global node_modules (2)
+├── @anthropic-ai/sdk@0.40.0
+└── cowsay@1.6.0

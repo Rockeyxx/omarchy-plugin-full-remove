@@ -1,0 +1,9 @@
+{
+  "name": "lib",
+  "dependencies": {
+    "agent-desktop": {
+      "version": "1.2.0",
+      "overridden": false
+    }
+  }
+}

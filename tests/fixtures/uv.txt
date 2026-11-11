@@ -1,0 +1,4 @@
+aider-chat v0.86.2
+- aider
+ruff v0.9.1
+- ruff

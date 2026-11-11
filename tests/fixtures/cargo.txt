@@ -1,0 +1,4 @@
+bat v0.24.0:
+    bat
+ripgrep v14.1.1 (/home/user/src/rg):
+    rg

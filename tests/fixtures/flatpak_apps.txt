@@ -1,0 +1,3 @@
+com.github.tchx84.Flatseal	Flatseal	1.4 MB	system
+com.valvesoftware.Steam	Steam	53.9 MB	system
+it.mijorus.gearlever	Gear Lever	26.3 MB	system

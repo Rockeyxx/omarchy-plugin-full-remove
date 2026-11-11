@@ -1,0 +1,44 @@
+Name            : bash
+Version         : 5.3.20-1
+Description     : The GNU Bourne Again shell
+Architecture    : x86_64
+URL             : https://www.gnu.org/software/bash/bash.html
+Licenses        : GPL-3.0-or-later
+Groups          : None
+Provides        : sh
+Depends On      : readline  libreadline.so=8-64  glibc  ncurses
+Optional Deps   : bash-completion: for tab completion [installed]
+Required By     : None
+Optional For    : None
+Conflicts With  : None
+Replaces        : None
+Installed Size  : 9.59 MiB
+Packager        : Tobias Powalowski <tpowa@archlinux.org>
+Build Date      : Tue 15 Sep 2026 10:47:19 PM +03
+Install Date    : Thu 22 Oct 2026 10:03:26 PM +03
+Install Reason  : Installed as a dependency for another package
+Install Script  : Yes
+Validated By    : Signature
+
+Name            : gum
+Version         : 2.0.2-1
+Description     : A tool for glamorous shell scripts
+Architecture    : x86_64
+URL             : https://github.com/charmbracelet/gum
+Licenses        : MIT
+Groups          : None
+Provides        : None
+Depends On      : glibc
+Optional Deps   : None
+Required By     : None
+Optional For    : None
+Conflicts With  : None
+Replaces        : None
+Installed Size  : 13.74 MiB
+Packager        : George Rawlinson <grawlinson@archlinux.org>
+Build Date      : Fri Sep 25 11:15:00 2026
+Install Date    : Thu Oct 22 22:09:20 2026
+Install Reason  : Explicitly installed
+Install Script  : No
+Validated By    : Signature
+

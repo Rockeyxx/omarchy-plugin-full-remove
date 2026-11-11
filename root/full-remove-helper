@@ -1,0 +1,211 @@
+#!/bin/bash
+# full-remove-helper: the only code Full Remove runs as root.
+#
+# Installed root-owned to /usr/lib/full-remove/full-remove-helper and called
+# through pkexec (polkit action io.github.rockeyxx.full-remove.run,
+# auth_admin: the password is asked every time).
+#
+#   full-remove-helper --version
+#   full-remove-helper remove  <item>...   item = pkg:<name> | flatpak:<app-id> | snap:<name>
+#   full-remove-helper cleanup <item>...   item = orphan:<name> | runtime:runtime/<id>/<arch>/<branch>
+#
+# Every item is validated before anything happens. Nothing else is accepted:
+# no paths, no options, no free-form commands. Reads no environment
+# variables and writes no files except deleting the removed packages' own
+# files in /var/cache/pacman/pkg.
+#
+# Exit codes: 0 done, 1 a section failed, 2 invalid item or usage,
+# 3 refused by the essential/security package guard.
+
+set -u -o pipefail   # deliberately no `set -e`: every status is checked by hand
+PATH=/usr/bin
+LC_ALL=C
+export PATH LC_ALL
+umask 022
+trap '' PIPE         # a closed output pipe must never kill pacman mid-transaction
+
+HELPER_PROTOCOL=1
+CACHE_DIR=/var/cache/pacman/pkg
+MODULES_DIR=/usr/lib/modules
+MAX_ITEMS=256
+
+# printf that never fails the script (output pipe may be gone).
+say() { printf '%s\n' "$*" 2>/dev/null || true; }
+err() { printf '%s\n' "$*" >&2 2>/dev/null || true; }
+
+valid_pkg_name() { [[ $1 =~ ^[a-z0-9][a-z0-9@._+-]*$ ]]; }
+
+# Installed under exactly this name (pacman -Q also resolves "provides").
+pkg_installed_exact() {
+  local out
+  out=$(pacman -Qq -- "$1" 2>/dev/null) || return 1
+  [[ $out == "$1" ]]
+}
+
+valid_flatpak_id() { [[ $1 =~ ^[A-Za-z_][A-Za-z0-9_-]*(\.[A-Za-z_][A-Za-z0-9_-]*){2,}$ ]]; }
+
+valid_snap() {
+  [[ ${#1} -le 40 && $1 =~ ^[a-z0-9](-?[a-z0-9])*$ ]] || return 1
+  [[ $1 == snapd || $1 == core* || $1 == bare ]] && return 1
+  return 0
+}
+
+valid_runtime_ref() { [[ $1 =~ ^runtime/[A-Za-z0-9_][A-Za-z0-9._-]*/[A-Za-z0-9_]+/[A-Za-z0-9._-]+$ ]]; }
+
+# Direct dependencies of every installed omarchy* package.
+omarchy_deps() {
+  local p
+  pacman -Qq 2>/dev/null | while read -r p; do
+    [[ $p == omarchy* ]] || continue
+    pacman -Qi -- "$p" 2>/dev/null | sed -n 's/^Depends On *: //p'
+  done | tr -s ' ' '\n' | sed 's/[<>=].*//' | grep -v '^None$' | grep -v '^$'
+}
+
+# Installed kernel packages: each writes its name to <modules>/<ver>/pkgbase.
+installed_kernels() {
+  local f
+  for f in "$MODULES_DIR"/*/pkgbase; do
+    [[ -f $f && ! -L $f ]] && head -n1 -- "$f"
+  done
+}
+
+# Exit 0 (and print the name) if any argument is an essential or security
+# package. Called with the full removal set.
+guard_hit() {
+  local n deps kernels
+  deps=" $(omarchy_deps | tr '\n' ' ') "
+  kernels=" $(installed_kernels | tr '\n' ' ') "
+  for n in "$@"; do
+    case $n in
+      linux-*-docs|linux-*-headers|linux-docs|linux-headers) continue ;;
+      base|filesystem|glibc|bash|coreutils|pacman|systemd|sudo|polkit|shadow|pam|pam-*|pambase \
+      |linux|linux-firmware|linux-firmware-*|limine|limine-*|grub|systemd-boot*|efibootmgr|mkinitcpio|dracut \
+      |amd-ucode|intel-ucode|cryptsetup|btrfs-progs|snapper \
+      |ufw|firewalld|nftables|iptables|iptables-*|apparmor|audit|clamav|fail2ban|opensnitch \
+      |omarchy|omarchy-*)
+        say "$n"; return 0 ;;
+    esac
+    [[ $deps == *" $n "* || $kernels == *" $n "* ]] && { say "$n"; return 0; }
+  done
+  return 1
+}
+
+# Everything `pacman -Rns` would remove. Fails closed: an error or empty
+# output means "refuse", never "nothing essential".
+removal_set() {
+  local out
+  out=$(pacman -Rsp --print-format '%n' -- "$@" 2>/dev/null) || return 1
+  [[ -n ${out//[[:space:]]/} ]] || return 1
+  printf '%s\n' "$out"
+}
+
+# Regular files directly in $1 that belong to one of the package names.
+# name-ver-rel-arch.pkg.tar.* (+ .sig): strip suffix, drop last 3 fields.
+cache_files_for() {
+  local dir=$1 f base stem name n
+  shift
+  while IFS= read -r -d '' f; do
+    base=${f##*/}
+    stem=${base%.sig}
+    [[ $stem == *.pkg.tar* ]] || continue
+    stem=${stem%%.pkg.tar*}
+    name=${stem%-*}; name=${name%-*}; name=${name%-*}
+    [[ $name == "$stem" ]] && continue
+    for n in "$@"; do
+      [[ $name == "$n" ]] && { printf '%s\n' "$f"; break; }
+    done
+  done < <(find -P "$dir" -mindepth 1 -maxdepth 1 -type f -print0 2>/dev/null)
+}
+
+remove_pacman() {
+  local -a names=("$@") set
+  local f hit status=0
+  mapfile -t set < <(removal_set "${names[@]}") || true
+  if [[ ${#set[@]} -eq 0 ]]; then
+    err "Refused: pacman cannot compute the removal set (dependency problem?)."
+    return 3
+  fi
+  if hit=$(guard_hit "${set[@]}"); then
+    err "Refused: '$hit' is an essential or security package."
+    return 3
+  fi
+  say "== pacman -Rns -- ${names[*]}"
+  say "   also removes: ${set[*]}"
+  if ! pacman -Rns --noconfirm -- "${names[@]}"; then
+    err "pacman failed; cache files kept."
+    return 1
+  fi
+  say "== cache files in $CACHE_DIR"
+  while IFS= read -r f; do
+    [[ -n $f ]] || continue
+    if rm -f -- "$f"; then say "   deleted ${f##*/}"; else err "   could not delete $f"; status=1; fi
+  done < <(cache_files_for "$CACHE_DIR" "${set[@]}")
+  return $status
+}
+
+usage() { err "usage: full-remove-helper --version | remove <item>... | cleanup <item>..."; exit 2; }
+
+main() {
+  [[ $# -ge 1 ]] || usage
+  local verb=$1; shift
+  case $verb in
+    --version) say "full-remove-helper $HELPER_PROTOCOL"; exit 0 ;;
+    remove|cleanup) ;;
+    *) usage ;;
+  esac
+  [[ $# -ge 1 && $# -le $MAX_ITEMS ]] || usage
+  if [[ $EUID -ne 0 ]]; then err "full-remove-helper must run as root (through pkexec)."; exit 2; fi
+
+  local -a pkgs=() flatpaks=() snaps=() runtimes=() orphans=()
+  local item kind val
+  for item in "$@"; do
+    kind=${item%%:*}; val=${item#*:}
+    [[ $item == *:* ]] || { err "Invalid item: $item"; exit 2; }
+    case $verb:$kind in
+      remove:pkg)
+        if ! { valid_pkg_name "$val" && pkg_installed_exact "$val"; }; then err "Not an installed package: $val"; exit 2; fi
+        pkgs+=("$val") ;;
+      remove:flatpak)
+        if ! { valid_flatpak_id "$val" && flatpak info --system --app -- "$val" >/dev/null 2>&1; }; then
+          err "Not an installed system Flatpak app: $val"; exit 2
+        fi
+        flatpaks+=("$val") ;;
+      remove:snap)
+        if ! { valid_snap "$val" && snap list -- "$val" >/dev/null 2>&1; }; then err "Not a removable snap: $val"; exit 2; fi
+        snaps+=("$val") ;;
+      cleanup:orphan)
+        if ! { valid_pkg_name "$val" && pkg_installed_exact "$val" && pacman -Qdtq 2>/dev/null | grep -qxF -- "$val"; }; then
+          err "Not an orphan: $val"; exit 2
+        fi
+        orphans+=("$val") ;;
+      cleanup:runtime)
+        if ! { valid_runtime_ref "$val" && flatpak info --system -- "$val" >/dev/null 2>&1; }; then
+          err "Not an installed system runtime: $val"; exit 2
+        fi
+        runtimes+=("$val") ;;
+      *) err "Invalid item: $item"; exit 2 ;;
+    esac
+  done
+
+  local status=0 rc
+  if [[ ${#pkgs[@]} -gt 0 || ${#orphans[@]} -gt 0 ]]; then
+    remove_pacman "${pkgs[@]}" "${orphans[@]}"; rc=$?
+    [[ $rc -eq 3 ]] && exit 3
+    [[ $rc -ne 0 ]] && status=1
+  fi
+  if [[ ${#flatpaks[@]} -gt 0 ]]; then
+    say "== flatpak uninstall --system --app -- ${flatpaks[*]}"
+    flatpak uninstall --system --app --noninteractive -y -- "${flatpaks[@]}" || status=1
+  fi
+  if [[ ${#runtimes[@]} -gt 0 ]]; then
+    say "== flatpak uninstall --system --runtime -- ${runtimes[*]}"
+    flatpak uninstall --system --runtime --noninteractive -y -- "${runtimes[@]}" || status=1
+  fi
+  if [[ ${#snaps[@]} -gt 0 ]]; then
+    say "== snap remove --purge -- ${snaps[*]}"
+    snap remove --purge -- "${snaps[@]}" || status=1
+  fi
+  exit $status
+}
+
+[[ ${BASH_SOURCE[0]} == "$0" ]] && main "$@"

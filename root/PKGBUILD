@@ -1,0 +1,21 @@
+# Root helper for the Full Remove Omarchy plugin.
+# Build from a fresh clone you have read:  cd root && makepkg -si
+# Everything is local; nothing is downloaded.
+pkgname=full-remove-helper
+pkgver=1
+pkgrel=2
+pkgdesc='Root helper for the Full Remove Omarchy plugin (removes named packages, Flatpaks, Snaps)'
+arch=(any)
+url='https://github.com/Rockeyxx/omarchy-plugin-full-remove'
+license=(MIT)
+depends=(bash pacman polkit findutils sed grep)
+optdepends=('flatpak: remove system Flatpaks' 'snapd: remove Snaps')
+source=(full-remove-helper io.github.rockeyxx.full-remove.policy)
+sha256sums=('7243ce0986e01fcadf4bb86234840ae5420e0d9189892d97626986ca830bff65'
+            'c264ada9cab5b0e45ec80dde03a385d23659ffe877d2d2dd1dcd135f2e64ac62')
+
+package() {
+  install -Dm755 "$srcdir/full-remove-helper" "$pkgdir/usr/lib/full-remove/full-remove-helper"
+  install -Dm644 "$srcdir/io.github.rockeyxx.full-remove.policy" \
+    "$pkgdir/usr/share/polkit-1/actions/io.github.rockeyxx.full-remove.policy"
+}

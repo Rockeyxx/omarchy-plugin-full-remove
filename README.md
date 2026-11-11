@@ -1,0 +1,1 @@
+# omarchy-plugin-full-remove

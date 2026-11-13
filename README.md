@@ -82,6 +82,8 @@ dev tools still work.
    - **Omarchy:** what Omarchy's installer put there
    - **Dev tools:** runtimes and toolchains (python, nodejs, go, rust, JDK,
      dotnet, clang, gdb...) plus global npm/bun/uv/pipx/cargo/go/gem installs
+   - **Services:** background daemons with a system service and no app launcher
+     (acpid, earlyoom, atd...). Removable like apps.
    - **System:** kernels, firmware, drivers, bootloader, and anything the system
      or Omarchy depends on. View only.
    - **Orphans:** orphans and unused Flatpak runtimes that already exist

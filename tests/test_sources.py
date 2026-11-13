@@ -242,3 +242,29 @@ def test_is_protected_kernels(fr):
 ])
 def test_package_group(fr, name, omarchy, prot, group):
     assert fr.package_group(name, omarchy, prot) == group
+
+
+@pytest.mark.parametrize("name,omarchy,prot,group", [
+    ("acpid", False, False, "services"), ("earlyoom", False, False, "services"),
+    ("systemd", False, True, "system"),          # protected beats Services
+    ("bluez", False, False, "system"),           # system pattern beats Services
+    ("hypridle", True, False, "omarchy"),        # Omarchy list beats Services
+    ("python", False, False, "dev"),             # toolchains stay in Dev
+])
+def test_package_group_service(fr, name, omarchy, prot, group):
+    assert fr.package_group(name, omarchy, prot, service=True) == group
+
+
+@pytest.mark.parametrize("files,expected", [
+    (["/usr/bin/acpid", "/usr/lib/systemd/system/acpid.service", "/usr/lib/systemd/system/acpid.socket"], True),
+    (["/usr/bin/atd", "/usr/lib/systemd/system/atd.service"], True),
+    (["/usr/lib/systemd/system/getty@.service"], True),
+    (["/usr/lib/systemd/system/fstrim.timer"], True),
+    (["/usr/bin/waydroid", "/usr/lib/systemd/system/waydroid-container.service",
+      "/usr/share/applications/Waydroid.desktop"], False),       # has a launcher: an app
+    (["/usr/bin/foo", "/usr/lib/systemd/user/foo.service"], False),  # user unit only
+    (["/usr/lib/systemd/system/"], False),
+    (["/usr/bin/discord"], False),
+])
+def test_is_service_package(fr, files, expected):
+    assert fr.is_service_package(files) is expected

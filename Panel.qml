@@ -53,16 +53,17 @@ Item {
   property bool partial: false
 
   readonly property bool helperOk: !!helper.supported
-  // Tabs: Apps (what you installed), Omarchy, Dev tools, System (view-only), Orphans.
-  readonly property var tabs: ["apps", "omarchy", "dev", "system", "orphans"]
+  // Tabs: Apps (what you installed), Omarchy, Dev tools, Services (daemons), System (view-only), Orphans.
+  readonly property var tabs: ["apps", "omarchy", "dev", "services", "system", "orphans"]
   readonly property var userApps: apps.filter(function(a) { return !a.group || a.group === "user" })
   readonly property var omarchyApps: apps.filter(function(a) { return a.group === "omarchy" })
+  readonly property var serviceApps: apps.filter(function(a) { return a.group === "services" })
   readonly property var systemApps: apps.filter(function(a) { return a.group === "system" })
   readonly property var devAll: apps.filter(function(a) { return a.group === "dev" }).concat(devItems)
   readonly property var orphanList: Model.orphanItems(orphanAll)
   readonly property var currentItems: Model.filterItems(
     tab === "apps" ? userApps : tab === "omarchy" ? omarchyApps : tab === "dev" ? devAll
-      : tab === "system" ? systemApps : orphanList, query)
+      : tab === "services" ? serviceApps : tab === "system" ? systemApps : orphanList, query)
 
   // ---------------------------------------------------------------- lifecycle
 
@@ -525,6 +526,7 @@ Item {
               Button { text: "Apps (" + root.userApps.length + ")"; selected: root.tab === "apps"; onClicked: root.setTab("apps") }
               Button { text: "Omarchy (" + root.omarchyApps.length + ")"; selected: root.tab === "omarchy"; onClicked: root.setTab("omarchy") }
               Button { text: "Dev tools (" + root.devAll.length + ")"; selected: root.tab === "dev"; onClicked: root.setTab("dev") }
+              Button { text: "Services (" + root.serviceApps.length + ")"; selected: root.tab === "services"; onClicked: root.setTab("services") }
               Button { text: "System (" + root.systemApps.length + ")"; selected: root.tab === "system"; onClicked: root.setTab("system") }
               Button { text: "Orphans (" + root.orphanList.length + ")"; selected: root.tab === "orphans"; onClicked: root.setTab("orphans") }
               TextField {

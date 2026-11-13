@@ -617,14 +617,24 @@ _DEV_RE = re.compile(
     r"|cuda|cuda-.*|uv|pipx|poetry)$")
 
 
-def package_group(name: str, in_omarchy: bool, protected: bool) -> str:
-    """Tab for a pacman package: system | omarchy | dev | user (Apps)."""
+_SYSTEM_UNIT_RE = re.compile(r"^/usr/lib/systemd/system/[^/]+\.(service|socket|timer)$")
+
+
+def is_service_package(files: list[str]) -> bool:
+    """Ships a system unit and no app launcher (acpid, earlyoom, atd...)."""
+    return any(_SYSTEM_UNIT_RE.match(f) for f in files) and not _desktop_files(files)
+
+
+def package_group(name: str, in_omarchy: bool, protected: bool, service: bool = False) -> str:
+    """Tab for a pacman package: system | omarchy | dev | services | user (Apps)."""
     if protected or _SYSTEM_RE.match(name):
         return "system"
     if in_omarchy:
         return "omarchy"
     if _DEV_RE.match(name):
         return "dev"
+    if service:
+        return "services"
     return "user"
 
 
@@ -913,7 +923,8 @@ def cmd_list_apps() -> dict:
             p = info.get(n, {})
             apps.append({"id": f"pkg:{n}", "name": n, "display": display or n, "source": "aur" if n in foreign else "pacman",
                          "size": p.get("size", 0), "description": p.get("description", ""),
-                         "group": package_group(n, n in om_pkgs, is_protected(n, om_deps, kernels)),
+                         "group": package_group(n, n in om_pkgs, is_protected(n, om_deps, kernels),
+                                                is_service_package(files.get(n, []))),
                          "protected": is_protected(n, om_deps, kernels)})
     if shutil.which("flatpak"):
         for a in parse_flatpak_apps(run(["flatpak", "list", "--app", "--columns=application,name,size,installation"])[1]):

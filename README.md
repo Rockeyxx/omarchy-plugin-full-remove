@@ -78,12 +78,13 @@ dev tools still work.
 
 1. **Choose.** Tick what to remove and press Continue. Turn on *Scan only* to
    just look.
-   - **Apps:** what you installed (pacman, AUR, Flatpak, Snap, AppImage)
+   - **Apps:** what you installed that shows in the app launcher (pacman, AUR,
+     Flatpak, Snap, AppImage)
    - **Omarchy:** what Omarchy's installer put there
    - **Dev tools:** runtimes and toolchains (python, nodejs, go, rust, JDK,
      dotnet, clang, gdb...) plus global npm/bun/uv/pipx/cargo/go/gem installs
-   - **Services:** background daemons with a system service and no app launcher
-     (acpid, earlyoom, atd...). Removable like apps.
+   - **CLI & services:** what you installed that has no launcher: daemons, CLI tools,
+     fonts, libraries (acpid, github-cli, ttf-dejavu...). Removable like apps.
    - **System:** kernels, firmware, drivers, bootloader, and anything the system
      or Omarchy depends on. View only.
    - **Orphans:** orphans and unused Flatpak runtimes that already exist

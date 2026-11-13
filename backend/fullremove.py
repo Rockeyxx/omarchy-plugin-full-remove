@@ -617,23 +617,50 @@ _DEV_RE = re.compile(
     r"|cuda|cuda-.*|uv|pipx|poetry)$")
 
 
-_SYSTEM_UNIT_RE = re.compile(r"^/usr/lib/systemd/system/[^/]+\.(service|socket|timer)$")
+def launcher_name(desktop_texts: list[str]) -> str:
+    """Name of the first desktop entry the app launcher shows, or ""."""
+    for text in desktop_texts:
+        d = parse_desktop(text)
+        if d.get("Name") and d.get("NoDisplay", "").lower() != "true" and d.get("Hidden", "").lower() != "true":
+            return d["Name"]
+    return ""
 
 
-def is_service_package(files: list[str]) -> bool:
-    """Ships a system unit and no app launcher (acpid, earlyoom, atd...)."""
-    return any(_SYSTEM_UNIT_RE.match(f) for f in files) and not _desktop_files(files)
+def user_launchers(appdir: str, owner: dict) -> dict:
+    """{package: Name} for launchers in `appdir` whose Exec runs, by absolute
+    path, a file the package owns (installers that write their own entry).
+    Wrappers (flatpak run, java -jar...) don't make the wrapper an app."""
+    out = {}
+    try:
+        fns = sorted(os.listdir(appdir))
+    except OSError:
+        return out
+    for fn in fns:
+        if not fn.endswith(".desktop"):
+            continue
+        text = _read(os.path.join(appdir, fn))
+        exec_line = parse_desktop(text).get("Exec", "")
+        try:
+            tokens = shlex.split(exec_line)
+        except ValueError:
+            continue
+        if not tokens or exec_binary(exec_line) is None:
+            continue
+        pkg, name = owner.get(tokens[0]), launcher_name([text])
+        if pkg and name:
+            out.setdefault(pkg, name)
+    return out
 
 
-def package_group(name: str, in_omarchy: bool, protected: bool, service: bool = False) -> str:
-    """Tab for a pacman package: system | omarchy | dev | services | user (Apps)."""
+def package_group(name: str, in_omarchy: bool, protected: bool, launcher: bool = True) -> str:
+    """Tab for a pacman package: system | omarchy | dev | services (no launcher) | user (Apps)."""
     if protected or _SYSTEM_RE.match(name):
         return "system"
     if in_omarchy:
         return "omarchy"
     if _DEV_RE.match(name):
         return "dev"
-    if service:
+    if not launcher:
         return "services"
     return "user"
 
@@ -914,17 +941,14 @@ def cmd_list_apps() -> dict:
     if names:
         info = {p["name"]: p for p in parse_pacman_qi(run(["pacman", "-Qi", "--", *names])[1])}
         files = parse_pacman_ql(run(["pacman", "-Ql", "--", *names])[1])
+        extra = user_launchers(os.path.join(home, ".local/share/applications"),
+                               {f: n for n, fs in files.items() for f in fs})
         for n in names:
-            display = ""
-            for dfile in _desktop_files(files.get(n, [])):
-                display = parse_desktop(_read(dfile)).get("Name", "")
-                if display:
-                    break
+            display = launcher_name([_read(f) for f in _desktop_files(files.get(n, []))]) or extra.get(n, "")
             p = info.get(n, {})
             apps.append({"id": f"pkg:{n}", "name": n, "display": display or n, "source": "aur" if n in foreign else "pacman",
                          "size": p.get("size", 0), "description": p.get("description", ""),
-                         "group": package_group(n, n in om_pkgs, is_protected(n, om_deps, kernels),
-                                                is_service_package(files.get(n, []))),
+                         "group": package_group(n, n in om_pkgs, is_protected(n, om_deps, kernels), bool(display)),
                          "protected": is_protected(n, om_deps, kernels)})
     if shutil.which("flatpak"):
         for a in parse_flatpak_apps(run(["flatpak", "list", "--app", "--columns=application,name,size,installation"])[1]):

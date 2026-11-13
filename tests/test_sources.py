@@ -245,26 +245,42 @@ def test_package_group(fr, name, omarchy, prot, group):
 
 
 @pytest.mark.parametrize("name,omarchy,prot,group", [
-    ("acpid", False, False, "services"), ("earlyoom", False, False, "services"),
+    ("acpid", False, False, "services"), ("acpi", False, False, "services"), ("github-cli", False, False, "services"),
     ("systemd", False, True, "system"),          # protected beats Services
     ("bluez", False, False, "system"),           # system pattern beats Services
     ("hypridle", True, False, "omarchy"),        # Omarchy list beats Services
     ("python", False, False, "dev"),             # toolchains stay in Dev
 ])
-def test_package_group_service(fr, name, omarchy, prot, group):
-    assert fr.package_group(name, omarchy, prot, service=True) == group
+def test_package_group_without_launcher(fr, name, omarchy, prot, group):
+    assert fr.package_group(name, omarchy, prot, launcher=False) == group
 
 
-@pytest.mark.parametrize("files,expected", [
-    (["/usr/bin/acpid", "/usr/lib/systemd/system/acpid.service", "/usr/lib/systemd/system/acpid.socket"], True),
-    (["/usr/bin/atd", "/usr/lib/systemd/system/atd.service"], True),
-    (["/usr/lib/systemd/system/getty@.service"], True),
-    (["/usr/lib/systemd/system/fstrim.timer"], True),
-    (["/usr/bin/waydroid", "/usr/lib/systemd/system/waydroid-container.service",
-      "/usr/share/applications/Waydroid.desktop"], False),       # has a launcher: an app
-    (["/usr/bin/foo", "/usr/lib/systemd/user/foo.service"], False),  # user unit only
-    (["/usr/lib/systemd/system/"], False),
-    (["/usr/bin/discord"], False),
+ENTRY = "[Desktop Entry]\nType=Application\nName={name}\n{extra}"
+
+
+@pytest.mark.parametrize("texts,expected", [
+    ([], ""),
+    ([ENTRY.format(name="Discord", extra="")], "Discord"),
+    ([ENTRY.format(name="Agent", extra="NoDisplay=true")], ""),          # hidden from the launcher
+    ([ENTRY.format(name="Old", extra="Hidden=true")], ""),
+    ([ENTRY.format(name="URL Handler", extra="NoDisplay=true"), ENTRY.format(name="IDE", extra="")], "IDE"),
+    ([ENTRY.format(name="App", extra="NoDisplay=false")], "App"),
+    (["[Desktop Entry]\nType=Application\nExec=foo\n"], ""),             # no Name: nothing to show
 ])
-def test_is_service_package(fr, files, expected):
-    assert fr.is_service_package(files) is expected
+def test_launcher_name(fr, texts, expected):
+    assert fr.launcher_name(texts) == expected
+
+
+def test_user_launchers_maps_absolute_exec_to_owning_package(fr, tmp_path):
+    d = tmp_path / "applications"
+    d.mkdir()
+    (d / "pt.desktop").write_text(ENTRY.format(name="Cisco Packet Tracer",
+                                               extra="Exec=/usr/lib/packettracer/packettracer.AppImage %f"))
+    (d / "hidden.desktop").write_text(ENTRY.format(name="Hidden", extra="NoDisplay=true\nExec=/usr/bin/foo"))
+    (d / "webapp.desktop").write_text(ENTRY.format(name="YouTube", extra="Exec=omarchy-launch-webapp https://youtube.com"))
+    (d / "mine.desktop").write_text(ENTRY.format(name="Mine", extra="Exec=/home/u/bin/mine"))
+    (d / "steam.desktop").write_text(ENTRY.format(name="SteamF", extra="Exec=/usr/bin/flatpak run com.valvesoftware.Steam"))
+    owner = {"/usr/lib/packettracer/packettracer.AppImage": "packettracer", "/usr/bin/foo": "foo",
+             "/usr/bin/omarchy-launch-webapp": "omarchy", "/usr/bin/flatpak": "flatpak"}
+    assert fr.user_launchers(str(d), owner) == {"packettracer": "Cisco Packet Tracer"}
+    assert fr.user_launchers(str(tmp_path / "missing"), owner) == {}

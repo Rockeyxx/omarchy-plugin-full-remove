@@ -103,6 +103,7 @@ Item {
     cleanup = null
     leftTicks = ({})
     trashed = []
+    trashSince = ""
     query = ""
     loadLists()
   }
@@ -285,6 +286,7 @@ Item {
   function afterRun(st) {
     logFile.reload()
     if (st.stage === "cleanup") { step = "done"; return }
+    trashSince = st.start || ""
     if (st.cancelled && st.steps.length === 0) { notice = st.reason; step = "done"; return }
     var ids = st.ids || []
     call("installed", ids, function(r) {
@@ -328,7 +330,6 @@ Item {
     var paths = tickedLeftovers()
     if (!paths.length) { loadCleanup(); return }
     busy = "Moving to Trash…"
-    trashSince = runState && runState.start ? runState.start : new Date().toISOString().slice(0, 19)
     call("trash", paths, function(r) {
       root.busy = ""
       var ok = [], bad = []
